@@ -40,7 +40,8 @@ resource vault 'Microsoft.KeyVault/vaults@2023-02-01' existing = {
 }
 
 resource accessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2023-02-01' = {
-  name: '${vault.name}/add'
+  parent: vault
+  name: 'add'
   properties: {
     accessPolicies: [
       {
@@ -52,9 +53,6 @@ resource accessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2023-02-01' = {
       }
     ]
   }
-  dependsOn: [
-    webApp
-  ]
 }
 
 // Create app settings after the identity has been granted Key Vault secret-read access.
