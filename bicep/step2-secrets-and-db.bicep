@@ -42,7 +42,8 @@ resource sqlServer 'Microsoft.Sql/servers@2022-11-01-preview' = {
 }
 
 resource sqlDb 'Microsoft.Sql/servers/databases@2022-11-01-preview' = {
-  name: '${sqlServer.name}/${sqlDbName}'
+  parent: sqlServer
+  name: sqlDbName
   location: location
   sku: {
     name: 'Basic'
@@ -67,4 +68,4 @@ resource sqlAdminSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
 output keyVaultName string = keyVault.name
 output sqlServerName string = sqlServer.name
 output sqlDatabaseName string = sqlDb.name
-output sqlAdminPasswordSecretName string = sqlAdminSecret.name
+output sqlSecretName string = sqlAdminSecret.name
