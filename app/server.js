@@ -1,13 +1,26 @@
 const express = require('express');
+
 const app = express();
-const port = process.env.PORT || 3000;
-const dbPassword = process.env.DB_PASSWORD || 'not set';
+const port = Number(process.env.PORT || 3000);
 
-app.get('/', (req, res) => {
-  res.send(`SecureBank App Running. DB Password: ${dbPassword}`);
+app.get('/healthz', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
 });
 
-app.listen(port, () => {
-  console.log(`Server is listening on port ${port}`);
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    service: 'SecureBank-Pro demo API',
+    status: 'running',
+    databaseCredentialConfigured: Boolean(process.env.DB_PASSWORD),
+    databaseIntegration: 'not implemented in this prototype',
+  });
 });
 
+// Export the app so it can be tested without starting a listener.
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`SecureBank-Pro demo API listening on port ${port}`);
+  });
+}
+
+module.exports = app;
