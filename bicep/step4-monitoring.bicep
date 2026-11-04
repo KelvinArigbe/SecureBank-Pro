@@ -1,7 +1,7 @@
 param location string = resourceGroup().location
 param workspaceName string = 'sbp-law-kelvin'
 param appInsightsName string = 'sbp-ai-kelvin'
-param appServiceName string = 'sbp-webapp-kelvin'
+param appServiceName string = 'sbp-web-${uniqueString(resourceGroup().id)}'
 
 // Create Log Analytics workspace
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2021-06-01' = {
