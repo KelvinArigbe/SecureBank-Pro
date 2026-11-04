@@ -21,3 +21,6 @@ __pycache__/
 
 # Generated deployment packages
 app/app.zip
+
+# Local Azure deployment parameters (may contain secrets)
+securebank.local.parameters.json
