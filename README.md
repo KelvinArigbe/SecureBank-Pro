@@ -1,177 +1,220 @@
-# SecureBank Pro 🔐💻  
-**An Advanced Azure Cloud Security Architecture Project**
+# SecureBank Pro — Azure Security Architecture Lab
 
-SecureBank Pro is a senior-level cloud security architecture blueprint designed to demonstrate Zero Trust implementation using Azure-native tools. The solution models a secure, real-world deployment for a fictional banking app running on Azure App Service and backed by an Azure SQL Database. It features secrets management, RBAC, monitoring, and threat protection—all provisioned via Bicep Infrastructure as Code (IaC).
+**A practical Azure architecture prototype covering secure application configuration, Key Vault, Managed Identity, Azure SQL, Bicep, and monitoring.**
 
----
+SecureBank Pro models the foundations of a fictional banking application hosted on Azure App Service and backed by Azure SQL Database. It is a learning and portfolio lab, not a production banking service.
 
-## 🧭 Project Overview
+> **Implementation boundary:** The repository contains Bicep templates and a small Express demo API. The API does not connect to Azure SQL, implement user authentication, or process financial data. The templates are provided for review and deployment in your own Azure lab; a committed template is not proof that the corresponding resource has been deployed or tested in a live subscription.
 
-| Phase | Title                        | Description                                                                 |
-|-------|------------------------------|-----------------------------------------------------------------------------|
-| 1     | Resource Group & Network     | Set up project scope, region, resource group, and naming conventions.       |
-| 2     | Secrets & SQL Database       | Deploy Key Vault with secrets, SQL server, and secure connection string.    |
-| 3     | Web App & Identity           | Deploy Node.js App on App Service, connect to Key Vault & SQL via MSI.      |
-| 4     | Monitoring                   | Enable App Insights, Log Analytics, and diagnostic settings for visibility. |
-| 5     | Defender for Cloud           | Enable Microsoft Defender for SQL, App Service, Key Vault, and monitor secure score. |
+## What is in this repository?
 
----
+| Component | What it demonstrates | Current boundary |
+|---|---|---|
+| Azure SQL Database | Logical server and Basic database provisioning | No application database connection is implemented |
+| Azure Key Vault | Stores the SQL administrator password as a secret | Lab uses access-policy authorization |
+| App Service | Linux Node.js web app with system-assigned identity | Demo API only; no banking functionality |
+| Managed Identity | App Service identity receives Key Vault secret `secrets/get` permission | SQL authentication via Entra ID is not implemented |
+| Key Vault reference | Exposes the secret to App Service as `DB_PASSWORD` | Demo API reports whether it is configured; it never returns the value |
+| Log Analytics | Central log workspace | Requires deployment and workspace validation |
+| Application Insights | Workspace-based Application Insights component | Node.js telemetry instrumentation is not configured |
+| Diagnostic settings | App Service HTTP logs and metrics routed to Log Analytics | No Sentinel analytics rules or incident playbooks are deployed |
 
-## ⚙️ Tech Stack
+## Architecture
 
-- **Azure App Service (Linux)**
-- **Azure SQL Database**
-- **Azure Key Vault**
-- **Azure Bicep**
-- **Azure Log Analytics**
-- **Azure Monitor**
-- **Defender for Cloud**
-- **Node.js & Express**
+1. Bicep provisions an Azure Key Vault and Azure SQL logical server/database.
+2. The SQL administrator password is passed as a secure Bicep parameter and stored in Key Vault as a secret.
+3. Bicep provisions a Linux App Service with a system-assigned managed identity.
+4. The identity receives only the Key Vault `secrets/get` permission through a vault access policy.
+5. An App Service application setting references the Key Vault secret. The setting is created after the access policy so the reference has permission to resolve.
+6. A separate Bicep template creates Log Analytics, an Application Insights component, and App Service diagnostic settings.
 
----
+The App Service demo currently does **not** connect to Azure SQL. A future phase should implement SQL connectivity using Microsoft Entra authentication and the App Service managed identity rather than using the SQL administrator credential for application access.
 
-## 🔐 Security Features
+## Technology stack
 
-- Secrets stored in **Azure Key Vault**, accessed via **Managed Identity**.
-- SQL Admin password not hardcoded—retrieved securely at runtime.
-- Web App uses system-assigned identity for zero-credential access.
-- Diagnostic logs sent to **Log Analytics** workspace.
-- Defender for Cloud activated for core resources.
+- Microsoft Azure
+- Azure Bicep
+- Azure App Service (Linux)
+- Azure SQL Database
+- Azure Key Vault
+- System-assigned Managed Identity
+- Key Vault references
+- Azure Monitor
+- Log Analytics
+- Application Insights
+- Node.js 24 LTS
+- Express 5
+- GitHub Actions
 
----
+## Repository structure
 
-## 📁 Project Structure
-
-```
-
+```text
 SecureBank-Pro/
-│
-├── app/                        # Node.js application
-│   ├── index.js
-│   └── package.json
-│
-├── bicep/                      # All infrastructure-as-code files
-│   ├── step1-core.bicep
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── app/
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── server.js
+│   └── server.test.js
+├── bicep/
 │   ├── step2-secrets-and-db.bicep
 │   ├── step3-app-and-identity.bicep
 │   └── step4-monitoring.bicep
-│
-└── README.md                   # You're here!
-
-````
-
----
-
-## 🚀 Deployment Steps
-
-### ✅ Prerequisites
-
-- Azure CLI logged in
-- `az bicep` installed and up to date
-- Node.js + npm installed (for the app)
-- GitHub repo created (optional)
-
----
-
-### 🧱 Step 1: Core Infrastructure
-
-```bash
-az deployment group create \
-  --resource-group SecureBankRG3 \
-  --template-file ./bicep/step1-core.bicep
-````
-
----
-
-### 🔐 Step 2: Key Vault + SQL
-
-```bash
-az deployment group create \
-  --resource-group SecureBankRG3 \
-  --template-file ./bicep/step2-secrets-and-db.bicep \
-  --parameters adminPassword='YOUR_ADMIN_PASSWORD'
+├── .gitignore
+└── README.md
 ```
 
----
+## Run the demo API locally
 
-### 🌐 Step 3: App + Identity
+### Prerequisites
 
-```bash
-az deployment group create \
-  --resource-group SecureBankRG3 \
-  --template-file ./bicep/step3-app-and-identity.bicep \
-  --parameters keyVaultName=sbp-kv-kelvin20250708
-```
+- Node.js 24 LTS
+- npm
 
-> ⚠️ Then deploy the app:
+### Install, test, and start
 
 ```bash
 cd app
-npm install
-zip -r app.zip *
-az webapp deploy \
-  --resource-group SecureBankRG3 \
-  --name sbp-webapp-kelvin \
-  --src-path app.zip \
-  --type zip
+npm ci
+npm test
+npm start
 ```
 
----
+The API listens on port 3000 by default.
 
-### 📊 Step 4: Monitoring
+- `GET /` returns the service status and a Boolean indicating whether `DB_PASSWORD` is configured.
+- `GET /healthz` returns a basic health response.
+
+The API deliberately does not return or log the value of `DB_PASSWORD`.
+
+To test the configuration indicator locally:
+
+```bash
+DB_PASSWORD='local-test-value' npm start
+```
+
+Do not use a real database password for this local test.
+
+## Deploy the Azure infrastructure
+
+### Prerequisites
+
+- An Azure subscription and permission to create the resources below.
+- Azure CLI installed and authenticated with `az login`.
+- Bicep CLI available through Azure CLI (`az bicep install`).
+- A resource group in a region that supports the selected service tiers.
+- A globally unique Azure SQL server name, Key Vault name, and App Service name if you override the generated defaults.
+
+**Cost note:** Azure SQL Database, Key Vault, Log Analytics ingestion/retention, and other services can incur charges. The App Service plan defaults to the Free F1 tier, but this does not make the entire solution free. Review the price and region availability of every resource before deploying.
+
+### 1. Create a resource group
+
+```bash
+az group create --name SecureBankRG --location eastus
+```
+
+### 2. Deploy Key Vault and Azure SQL
+
+Create a local deployment-parameters file named `securebank.local.parameters.json`. Keep the file out of Git. Example structure:
+
+```json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminPassword": {
+      "value": "REPLACE_WITH_A_STRONG_UNIQUE_PASSWORD"
+    }
+  }
+}
+```
+
+The parameter is declared with Bicep's `@secure()` decorator. Use a strong password that meets Azure SQL complexity requirements. Do not paste a real password into source code, a README, terminal history, or a committed parameter file.
+
+Deploy:
 
 ```bash
 az deployment group create \
-  --resource-group SecureBankRG3 \
+  --name securebank-step2 \
+  --resource-group SecureBankRG \
+  --template-file ./bicep/step2-secrets-and-db.bicep \
+  --parameters @securebank.local.parameters.json
+```
+
+The template outputs the generated Key Vault and SQL names:
+
+```bash
+az deployment group show \
+  --name securebank-step2 \
+  --resource-group SecureBankRG \
+  --query properties.outputs \
+  --output json
+```
+
+### 3. Deploy App Service and Managed Identity
+
+Use the Key Vault name returned by Step 2:
+
+```bash
+az deployment group create \
+  --name securebank-step3 \
+  --resource-group SecureBankRG \
+  --template-file ./bicep/step3-app-and-identity.bicep \
+  --parameters keyVaultName=YOUR_KEY_VAULT_NAME
+```
+
+The template creates the web app identity, grants it Key Vault secret-read access, and then creates the Key Vault reference in the `DB_PASSWORD` application setting. Check the Key Vault reference resolution status in the App Service configuration after deployment.
+
+### 4. Deploy monitoring resources
+
+```bash
+az deployment group create \
+  --name securebank-step4 \
+  --resource-group SecureBankRG \
   --template-file ./bicep/step4-monitoring.bicep
 ```
 
-> 📈 View Logs:
+This creates the Log Analytics workspace, an Application Insights component, and an App Service diagnostic setting for HTTP logs and metrics. The template does not configure Node.js Application Insights instrumentation or Microsoft Sentinel.
 
-```bash
-az monitor log-analytics query \
-  --workspace <workspace-id> \
-  --analytics-query "AppRequests | take 5" \
-  --out table
-```
+## CI validation
 
----
+GitHub Actions runs on pushes and pull requests targeting `main`.
 
-### 🛡️ Step 5: Defender for Cloud
+The workflow:
+1. Installs Node.js 24.
+2. Runs `npm ci` in `app/`.
+3. Runs the Node.js test suite.
+4. Installs the Bicep CLI and compiles the three Bicep templates.
 
-```bash
-az provider register --namespace Microsoft.Security
-az security pricing create --name AppServices --tier 'Standard'
-az security pricing create --name SqlServers --tier 'Standard'
-az security pricing create --name KeyVaults --tier 'Standard'
-```
+The tests check that the demo API returns a health response and does not expose the configured database credential in its HTTP response.
 
-> ✅ Verify pricing tiers:
+## Security considerations and known limitations
 
-```bash
-az security pricing list --query "[?pricingTier=='Standard'].{Resource:name, Tier:pricingTier}" -o table
-```
+- **No real banking workflow:** there is no user login, authorization model, payment processing, or sensitive customer data.
+- **No database connectivity:** the SQL server and database are provisioned by Bicep, but the Express application does not connect to them.
+- **Prefer workload identity to passwords:** a future implementation should use the App Service managed identity with Microsoft Entra authentication to Azure SQL and a narrowly scoped database principal. The SQL administrator password should remain for administration only.
+- **Network restrictions are incomplete:** the templates do not create a VNet, private endpoints, SQL firewall rules, or App Service VNet integration. Do not treat the SQL service as privately isolated.
+- **Key Vault access model:** the Key Vault template uses vault access policies. An enterprise implementation should evaluate Azure RBAC authorization and policy governance consistently across the environment.
+- **Monitoring is partial:** a Log Analytics workspace, Application Insights component, and App Service diagnostic settings are provisioned by template, but application instrumentation, alert rules, Sentinel, and incident response automation are not included.
+- **Defender for Cloud is not enabled by these templates:** Defender plans are subscription-level settings and can incur additional charges. Enable them only after reviewing the current plan scope and pricing.
+- **Deployment is not evidenced here:** successful Bicep compilation in CI validates template syntax, not successful Azure resource provisioning. Add deployment outputs and redacted screenshots only after testing in your own subscription.
 
----
+## Next engineering improvements
 
-## 📌 Key Takeaways
+1. Implement a real data access layer using App Service Managed Identity and Microsoft Entra authentication to Azure SQL.
+2. Restrict SQL network access and design private connectivity before enabling application-to-database traffic.
+3. Configure App Insights SDK/agent instrumentation and actionable Azure Monitor alerts.
+4. Add Defender for Cloud recommendations and Sentinel detection/response only after the underlying data sources are connected.
+5. Add a deployment workflow with a review/approval gate and a safe rollback strategy.
+6. Add Bicep what-if checks and policy validation before deployment.
 
-* Zero-trust access with managed identity
-* Fully automated infrastructure using Bicep
-* No secrets exposed in app code
-* Logging, monitoring, and threat detection enabled
-* Industry-grade project to impress recruiters
+## License
 
----
-
-## 👨‍💻 Author
-
-**Kelvin Arigbe**
-*Cloud Security Enthusiast | Azure Certified | DevSecOps Focused*
-
+No license file is currently included. All rights remain with the respective copyright holders unless a license is added. Obtain appropriate rights for any third-party assets or code before redistribution.
 
 ---
 
-## 🧠 License
-
-This project is licensed for educational purposes only. Please fork and adapt as needed
+**Author:** Kelvin Arigbe  
+**Repository:** [github.com/KelvinArigbe/SecureBank-Pro](https://github.com/KelvinArigbe/SecureBank-Pro)
