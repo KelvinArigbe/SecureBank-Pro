@@ -1,6 +1,10 @@
-param location string = 'centralus'
+@description('Azure region for the App Service resources. Use the same region as the existing Key Vault where practical.')
+param location string = resourceGroup().location
+
 param appServicePlanName string = 'sbp-plan'
-param webAppName string = 'sbp-webapp-kelvin'
+@description('App Service name must be globally unique.')
+param webAppName string = 'sbp-web-${uniqueString(resourceGroup().id)}'
+
 param keyVaultName string
 param sqlDbPasswordSecretName string = 'sqlAdminPassword'
 
@@ -8,7 +12,7 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2022-03-01' = {
   name: appServicePlanName
   location: location
   sku: {
-    name: 'F1' // Free tier
+    name: 'F1'
     tier: 'Free'
   }
   kind: 'linux'
@@ -26,7 +30,13 @@ resource webApp 'Microsoft.Web/sites@2022-03-01' = {
   properties: {
     serverFarmId: appServicePlan.id
     siteConfig: {
-      linuxFxVersion: 'NODE|18-lts'
+      linuxFxVersion: 'NODE|24-lts'
+      appSettings: [
+        {
+          name: 'DB_PASSWORD'
+          value: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/${sqlDbPasswordSecretName})'
+        }
+      ]
     }
   }
 }
@@ -43,7 +53,7 @@ resource accessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2023-02-01' = {
         tenantId: subscription().tenantId
         objectId: webApp.identity.principalId
         permissions: {
-          secrets: [ 'get', 'list' ]
+          secrets: [ 'get' ]
         }
       }
     ]
@@ -54,4 +64,3 @@ resource accessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2023-02-01' = {
 }
 
 output appUrl string = 'https://${webApp.properties.defaultHostName}'
-
