@@ -31,12 +31,6 @@ resource webApp 'Microsoft.Web/sites@2022-03-01' = {
     serverFarmId: appServicePlan.id
     siteConfig: {
       linuxFxVersion: 'NODE|24-lts'
-      appSettings: [
-        {
-          name: 'DB_PASSWORD'
-          value: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/${sqlDbPasswordSecretName})'
-        }
-      ]
     }
   }
 }
@@ -60,6 +54,18 @@ resource accessPolicy 'Microsoft.KeyVault/vaults/accessPolicies@2023-02-01' = {
   }
   dependsOn: [
     webApp
+  ]
+}
+
+// Create app settings after the identity has been granted Key Vault secret-read access.
+resource appSettings 'Microsoft.Web/sites/config@2022-03-01' = {
+  parent: webApp
+  name: 'appsettings'
+  properties: {
+    DB_PASSWORD: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/${sqlDbPasswordSecretName})'
+  }
+  dependsOn: [
+    accessPolicy
   ]
 }
 
